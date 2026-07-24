@@ -79,7 +79,7 @@ window.SB_CONFIG = {
         lien: "https://soleilbeaujolais.fr/nos-missions/"
       },
       {
-        texte: "ACC",
+        texte: "Auto Consommation Collective",
         image: "./images/pave/acc.jpg",
         lien: "https://soleilbeaujolais.fr/nos-missions/"
       },
