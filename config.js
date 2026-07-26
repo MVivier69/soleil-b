@@ -71,7 +71,7 @@ window.SB_CONFIG = {
       {
         texte: "Simulation financière Batteries",
         image: "./images/pave/batteries.jpg",
-        lien: "Index_Batterie.html"
+        lien: "https://mvivier69.github.io/Repository-Perso/Index_Batterie.html"
       },
       {
         texte: "Missions",
