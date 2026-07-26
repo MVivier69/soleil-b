@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulateur de rentabilité des batteries</title>
+
+<!-- ════════════════════════════════════════════════════════════════
+     POLICES — Fraunces (titres) + Hanken Grotesk (texte / chiffres)
+     ════════════════════════════════════════════════════════════════ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Graphiques -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
+<style>
+/* ════════════════════════════════════════════════════════════════
+   CHARTE GRAPHIQUE PARTAGÉE  (identique au simulateur Photovoltaïque)
+   Modifiez librement ces variables pour changer l'apparence.
+   ════════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#FBFAF7;          /* fond papier chaud           */
+  --paper-2:#F4F1EA;        /* fond alterné                */
+  --ink:#1C1917;            /* texte principal             */
+  --ink-soft:#57534E;       /* texte secondaire            */
+  --ink-faint:#8A8178;      /* notes / unités              */
+  --line:#E7E2D8;           /* filets fins                 */
+  --line-strong:#D8D1C4;    /* filets appuyés              */
+  --card:#FFFFFF;           /* fond des cartes             */
+  --accent:#C2410C;         /* accent — terracotta solaire */
+  --accent-2:#EA8A3E;       /* accent clair — ambre        */
+  --accent-soft:#FBEAD9;    /* aplat accent très clair     */
+  --accent-ink:#7C2D12;     /* texte sur aplat accent      */
+  --slate:#64748B;          /* série secondaire (graphes)  */
+  --good:#15803D;           /* valeur favorable            */
+  --bad:#B91C1C;            /* valeur défavorable          */
+  --shadow:0 1px 2px rgba(28,25,23,.04), 0 14px 30px -18px rgba(28,25,23,.18);
+  --radius:16px;
+  --font-display:"Fraunces", Georgia, "Times New Roman", serif;
+  --font-body:"Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:var(--font-body);
+  color:var(--ink);
+  background:
+    radial-gradient(1100px 480px at 78% -8%, var(--accent-soft) 0%, transparent 60%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper) 70%, var(--paper-2) 100%);
+  background-attachment:fixed;
+  line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum";
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 22px 80px}
+
+/* ── Bandeau / masthead ─────────────────────────────────────────── */
+.masthead{padding:46px 0 28px;border-bottom:1px solid var(--line)}
+.kicker{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 12px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent-ink);
+  border:1px solid #F1D8C2;
+  font-size:12.5px;font-weight:600;letter-spacing:.02em;
+}
+.badge svg{width:15px;height:15px}
+.eyebrow{
+  font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-faint);
+}
+h1{
+  font-family:var(--font-display);
+  font-weight:500;font-size:clamp(30px,5vw,46px);
+  line-height:1.05;letter-spacing:-.015em;margin:0;
+}
+h1 em{font-style:italic;color:var(--accent)}
+.lead{margin:14px 0 0;max-width:60ch;color:var(--ink-soft);font-size:16px}
+
+/* ── Note encadrée ──────────────────────────────────────────────── */
+.note{
+  display:flex;gap:14px;margin-top:24px;padding:16px 18px;
+  background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--accent);border-radius:12px;
+  box-shadow:var(--shadow);font-size:13.5px;color:var(--ink-soft);
+}
+.note svg{flex:none;width:18px;height:18px;color:var(--accent);margin-top:2px}
+.note strong{color:var(--ink)}
+
+/* ── Titres de section ──────────────────────────────────────────── */
+.section-title{
+  font-family:var(--font-display);font-weight:500;
+  font-size:22px;letter-spacing:-.01em;margin:46px 0 16px;
+  display:flex;align-items:baseline;gap:12px;
+}
+.section-title .num{
+  font-family:var(--font-body);font-size:12px;font-weight:700;
+  color:var(--accent);letter-spacing:.1em;
+}
+
+/* ── Cartes de saisie ───────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.card{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:20px 20px 6px;box-shadow:var(--shadow);
+}
+.card h3{
+  margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-faint);
+}
+.field{padding:14px 0;border-top:1px solid var(--line)}
+.field:first-of-type{border-top:0}
+.field label{display:block;font-size:14px;font-weight:600;color:var(--ink)}
+.field .hint{font-size:12px;color:var(--ink-faint);margin:1px 0 9px}
+.inputline{display:flex;align-items:stretch;gap:0}
+.inputline input{
+  flex:1;min-width:0;font-family:var(--font-body);font-size:16px;font-weight:600;
+  color:var(--ink);background:var(--paper);border:1px solid var(--line-strong);
+  border-radius:10px 0 0 10px;padding:9px 12px;font-variant-numeric:tabular-nums;
+}
+.inputline.solo input{border-radius:10px}
+.inputline input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.unit{
+  display:flex;align-items:center;padding:0 12px;font-size:13px;font-weight:600;
+  color:var(--ink-faint);background:var(--paper-2);
+  border:1px solid var(--line-strong);border-left:0;border-radius:0 10px 10px 0;white-space:nowrap;
+}
+
+/* ── Bouton ─────────────────────────────────────────────────────── */
+.actions{margin:26px 0 6px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+button.run{
+  font-family:var(--font-body);font-size:15px;font-weight:600;color:#fff;
+  background:var(--ink);border:0;border-radius:11px;padding:13px 26px;cursor:pointer;
+  box-shadow:var(--shadow);transition:transform .12s ease, background .2s ease;
+}
+button.run:hover{background:#000;transform:translateY(-1px)}
+button.run:active{transform:translateY(0)}
+.live{font-size:12.5px;color:var(--ink-faint)}
+
+/* ── KPIs ───────────────────────────────────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.kpi{
+  position:relative;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px 18px 16px;overflow:hidden;box-shadow:var(--shadow);
+}
+.kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+.kpi .klabel{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--ink-faint);text-transform:uppercase}
+.kpi .kval{font-family:var(--font-display);font-weight:500;font-size:30px;letter-spacing:-.01em;margin:6px 0 2px}
+.kpi .ksub{font-size:12.5px;color:var(--ink-soft)}
+.kpi .kval.pos{color:var(--good)} .kpi .kval.neg{color:var(--bad)}
+
+/* ── Graphique ──────────────────────────────────────────────────── */
+.chart-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+.chart-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.chart-head h3{font-family:var(--font-display);font-weight:500;font-size:18px;margin:0}
+.chart-head p{margin:0;font-size:12.5px;color:var(--ink-faint)}
+.chart-box{position:relative;height:360px}
+
+/* ── Tableau ────────────────────────────────────────────────────── */
+.table-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.table-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:11px 16px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{
+  font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-faint);background:var(--paper-2);border-bottom:1px solid var(--line-strong);
+}
+tbody td{border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+tbody tr:nth-child(even){background:var(--paper)}
+tbody tr.cross{background:var(--accent-soft)}
+tbody tr.cross td{font-weight:600;color:var(--accent-ink)}
+
+/* ── Méthodologie (accordéon) ───────────────────────────────────── */
+details.method{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+details.method>summary{
+  list-style:none;cursor:pointer;padding:18px 22px;font-family:var(--font-display);
+  font-weight:500;font-size:18px;display:flex;align-items:center;justify-content:space-between;
+}
+details.method>summary::-webkit-details-marker{display:none}
+details.method>summary .chev{transition:transform .2s ease;color:var(--accent)}
+details.method[open]>summary .chev{transform:rotate(90deg)}
+.method-body{padding:4px 22px 22px;border-top:1px solid var(--line)}
+.method-body h4{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:18px 0 8px}
+.formula{
+  font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-size:13px;
+  background:var(--paper);border:1px solid var(--line);border-radius:8px;
+  padding:8px 12px;margin:6px 0;color:var(--ink);
+}
+.src{font-size:13px;color:var(--ink-soft);margin:6px 0;padding-left:18px;position:relative}
+.src::before{content:"›";position:absolute;left:2px;color:var(--accent);font-weight:700}
+
+/* ── Pied de page ───────────────────────────────────────────────── */
+footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint)}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <!-- ════════════════ BANDEAU ════════════════ -->
+  <header class="masthead">
+    <div class="kicker">
+      <span class="eyebrow">Outil de simulation</span>
+      <span class="badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 10v4M6 10v4M10 9v6"/>
+        </svg>
+        Stockage / Batteries
+      </span>
+    </div>
+    <h1>Simulateur de <em>rentabilité</em> des batteries</h1>
+    <p class="lead">Comparaison automatique de plusieurs capacités de stockage pour valoriser le surplus solaire injecté sur le réseau plutôt que de le revendre à bas prix.</p>
+
+    <div class="note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+      <div>La batterie stocke le surplus qui aurait été <strong>injecté (revendu à bas prix)</strong> pour le consommer plus tard et <strong>éviter un achat au réseau</strong> à un prix plus élevé. Le gain par kWh valorisé vaut donc <strong>prix d'achat − prix de revente</strong>. Les hypothèses sont à personnaliser et ne constituent pas une garantie.</div>
+    </div>
+  </header>
+
+  <!-- ════════════════ SAISIE ════════════════ -->
+  <h2 class="section-title"><span class="num">01</span> Paramètres de l'installation</h2>
+  <div class="grid">
+
+    <div class="card">
+      <h3>Installation &amp; énergie</h3>
+      <div class="field">
+        <label for="prod">Production PV</label>
+        <div class="hint">Production photovoltaïque annuelle.</div>
+        <div class="inputline"><input id="prod" type="number" step="100" value="10000"><span class="unit">kWh/an</span></div>
+      </div>
+      <div class="field">
+        <label for="cons">Consommation</label>
+        <div class="hint">Consommation électrique annuelle du foyer.</div>
+        <div class="inputline"><input id="cons" type="number" step="100" value="10000"><span class="unit">kWh/an</span></div>
+      </div>
+      <div class="field">
+        <label for="inj">Injection réseau</label>
+        <div class="hint">Surplus actuellement injecté (stockable).</div>
+        <div class="inputline"><input id="inj" type="number" step="100" value="5000"><span class="unit">kWh/an</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tarifs &amp; hypothèses économiques</h3>
+      <div class="field">
+        <label for="achat">Prix d'achat</label>
+        <div class="hint">Prix payé pour l'électricité du réseau.</div>
+        <div class="inputline"><input id="achat" type="number" step="0.0001" value="0.2000"><span class="unit">€/kWh</span></div>
+      </div>
+      <div class="field">
+        <label for="vente">Prix de revente</label>
+        <div class="hint">Tarif de rachat du surplus injecté.</div>
+        <div class="inputline"><input id="vente" type="number" step="0.0001" value="0.1000"><span class="unit">€/kWh</span></div>
+      </div>
+      <div class="field">
+        <label for="hausse">Hausse annuelle du prix élec.</label>
+        <div class="hint">Inflation appliquée chaque année au prix d'achat.</div>
+        <div class="inputline"><input id="hausse" type="number" step="0.5" value="3"><span class="unit">%/an</span></div>
+      </div>
+      <div class="field">
+        <label for="tauxActu">Taux d'actualisation</label>
+        <div class="hint">Sert au calcul de la VAN.</div>
+        <div class="inputline"><input id="tauxActu" type="number" step="0.5" value="4"><span class="unit">%</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Batterie</h3>
+      <div class="field">
+        <label for="cout">Coût batterie (réf. 13,5 kWh)</label>
+        <div class="hint">Le coût des autres capacités est calculé au prorata.</div>
+        <div class="inputline"><input id="cout" type="number" step="100" value="5000"><span class="unit">€</span></div>
+      </div>
+      <div class="field">
+        <label for="duree">Durée de vie / d'analyse</label>
+        <div class="hint">Horizon de l'étude.</div>
+        <div class="inputline"><input id="duree" type="number" step="1" value="20"><span class="unit">ans</span></div>
+      </div>
+      <div class="field">
+        <label for="degBat">Dégradation batterie</label>
+        <div class="hint">Perte de capacité utile annuelle.</div>
+        <div class="inputline"><input id="degBat" type="number" step="0.1" value="1"><span class="unit">%/an</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="actions">
+    <button class="run" onclick="simuler()">Lancer la simulation</button>
+    <span class="live">Recalcul automatique à chaque modification.</span>
+  </div>
+
+  <!-- ════════════════ RÉSULTATS ════════════════ -->
+  <h2 class="section-title"><span class="num">02</span> Synthèse</h2>
+  <div class="kpis" id="kpis"></div>
+
+  <!-- ════════════════ GRAPHIQUE ════════════════ -->
+  <h2 class="section-title"><span class="num">03</span> Gain cumulé</h2>
+  <div class="chart-card">
+    <div class="chart-head">
+      <h3>Évolution du gain cumulé par capacité</h3>
+      <p>Économies cumulées (hors coût d'achat de la batterie).</p>
+    </div>
+    <div class="chart-box"><canvas id="graph"></canvas></div>
+  </div>
+
+  <!-- ════════════════ TABLEAU ════════════════ -->
+  <h2 class="section-title"><span class="num">04</span> Comparatif des capacités</h2>
+  <div class="table-card"><div class="table-scroll">
+    <table id="tableau">
+      <thead>
+        <tr><th>Batterie</th><th>kWh valorisés/an</th><th>Gain année 1</th><th>Gain cumulé</th><th>ROI</th><th>VAN</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div></div>
+
+  <!-- ════════════════ MÉTHODOLOGIE ════════════════ -->
+  <h2 class="section-title"><span class="num">05</span> Méthodologie</h2>
+  <details class="method" open>
+    <summary>Formules &amp; hypothèses
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="method-body">
+      <h4>Formules (pour chaque année t)</h4>
+      <div class="formula">kWh valorisés = min( injection , plafond du palier de capacité )</div>
+      <div class="formula">Énergie(t) = kWh valorisés × (1 − dégradation)<sup>t−1</sup></div>
+      <div class="formula">Prix achat(t) = prix achat × (1 + hausse)<sup>t−1</sup></div>
+      <div class="formula">Gain(t) = Énergie(t) × ( Prix achat(t) − prix de revente )</div>
+      <div class="formula">Gain cumulé = Σ Gain(t)</div>
+      <div class="formula">VAN = −Coût batterie + Σ Gain(t) / (1 + taux d'actualisation)<sup>t</sup></div>
+      <div class="formula">ROI = première année où le gain cumulé ≥ coût de la batterie</div>
+
+      <h4>Capacités &amp; paliers de valorisation</h4>
+      <p class="src">Capacités comparées : 5, 10, 13,5, 15 et 20 kWh (liste éditable dans le code, objet <strong>CAPACITES</strong>).</p>
+      <p class="src">Plafond d'énergie valorisable par an selon la capacité (éditable, objet <strong>PALIERS</strong>) — borné par l'injection réseau réelle.</p>
+      <p class="src">Coût des capacités déduit au prorata du coût de référence (13,5 kWh).</p>
+
+      <h4>Hypothèses à personnaliser (non garanties)</h4>
+      <p class="src">Coût, durée de vie, dégradation, prix d'achat/revente et hausse dépendent du matériel et du contrat. Aucune prise en compte du remplacement de la batterie ni des pertes de charge/décharge.</p>
+    </div>
+  </details>
+
+  <footer>
+    Cet outil fournit une estimation à titre indicatif et ne constitue ni un conseil financier, ni une garantie de résultat. Les valeurs et paliers par défaut sont éditables dans le code (objets <strong>PARAMS</strong>, <strong>CAPACITES</strong> et <strong>PALIERS</strong>) et via les champs ci-dessus.
+  </footer>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   PARAMÈTRES PAR DÉFAUT — éditez ici pour changer les valeurs initiales
+   ════════════════════════════════════════════════════════════════ */
+const PARAMS = {
+  prod:     10000,   // kWh/an  — production PV
+  cons:     10000,   // kWh/an  — consommation
+  inj:      5000,    // kWh/an  — injection réseau (stockable)
+  achat:    0.2000,  // €/kWh   — prix d'achat
+  vente:    0.1000,  // €/kWh   — prix de revente
+  hausse:   3,       // %/an    — hausse du prix d'achat
+  tauxActu: 4,       // %       — taux d'actualisation (VAN)
+  cout:     5000,    // €       — coût batterie de référence (13,5 kWh)
+  duree:    20,      // ans
+  degBat:   1        // %/an    — dégradation batterie
+};
+
+/* Capacités comparées (kWh) — ajoutez/retirez des valeurs librement */
+const CAPACITES = [5, 10, 13.5, 15, 20];
+
+/* Capacité de référence pour le calcul du coût au prorata (kWh) */
+const CAP_REF = 13.5;
+
+/* Paliers de valorisation : kWh max valorisables/an selon la capacité.
+   « max » = capacité maximale du palier (kWh) ; « plafond » = énergie/an. */
+const PALIERS = [
+  {max: 5,        plafond: 1500},
+  {max: 10,       plafond: 2500},
+  {max: 13.5,     plafond: 3200},
+  {max: 15,       plafond: 3500},
+  {max: Infinity, plafond: 4500}
+];
+
+/* Palette des courbes (une couleur par capacité, dans l'ordre de CAPACITES).
+   La référence 13,5 kWh est mise en avant via REF_INDEX. */
+const PALETTE = ['#F0C18C', '#E89B57', '#C2410C', '#7C8AA0', '#475569'];
+const REF_INDEX = CAPACITES.indexOf(CAP_REF);
+
+/* ── Formatage français ─────────────────────────────────────────── */
+const nf0 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:0});
+const euro = n => nf0.format(Math.round(n)) + ' €';
+const capF = c => c.toLocaleString('fr-FR') + ' kWh';
+
+/* ── Thème commun pour Chart.js ─────────────────────────────────── */
+const css = v => getComputedStyle(document.body).getPropertyValue(v).trim();
+Chart.defaults.font.family = '"Hanken Grotesk", system-ui, sans-serif';
+Chart.defaults.font.size = 12.5;
+Chart.defaults.color = css('--ink-soft');
+
+let chart;
+const $ = id => document.getElementById(id);
+
+/* Énergie valorisable/an = plafond du palier de capacité, borné par l'injection */
+function potentiel(cap, inj){
+  const palier = PALIERS.find(p => cap <= p.max) || PALIERS[PALIERS.length-1];
+  return Math.min(inj, palier.plafond);
+}
+
+/* ── Lecture des champs ─────────────────────────────────────────── */
+function lire(){
+  return {
+    inj:      +$('inj').value,
+    achat:    +$('achat').value,
+    vente:    +$('vente').value,
+    hausse:   +$('hausse').value / 100,
+    tauxActu: +$('tauxActu').value / 100,
+    cout:     +$('cout').value,
+    duree:    Math.max(1, Math.round(+$('duree').value)),
+    degBat:   +$('degBat').value / 100
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SIMULATION
+   ════════════════════════════════════════════════════════════════ */
+function simuler(){
+  const p = lire();
+  const labels = Array.from({length: p.duree}, (_, i) => i + 1);
+
+  const resultats = CAPACITES.map((cap, idx) => {
+    const cout  = p.cout * (cap / CAP_REF);
+    const recup = potentiel(cap, p.inj);
+
+    let cumul = 0, van = -cout, roi = null;
+    const courbe = [];
+    for (let an = 1; an <= p.duree; an++){
+      const prix    = p.achat * Math.pow(1 + p.hausse, an - 1);
+      const energie = recup  * Math.pow(1 - p.degBat, an - 1);
+      const gain    = energie * (prix - p.vente);
+      cumul += gain;
+      van   += gain / Math.pow(1 + p.tauxActu, an);
+      if (roi === null && cumul >= cout) roi = an;
+      courbe.push(+cumul.toFixed(0));
+    }
+    const gain1 = recup * (p.achat - p.vente);
+    return {cap, idx, cout, recup, gain1, cumul, roi, van, courbe};
+  });
+
+  // Meilleure option = VAN la plus élevée
+  const best = resultats.reduce((a, b) => b.van > a.van ? b : a, resultats[0]);
+
+  // ── KPIs ──────────────────────────────────────────────────────
+  $('kpis').innerHTML = `
+    <div class="kpi"><div class="klabel">Capacité conseillée</div><div class="kval">${capF(best.cap)}</div><div class="ksub">meilleure VAN</div></div>
+    <div class="kpi"><div class="klabel">VAN (option conseillée)</div><div class="kval ${best.van>=0?'pos':'neg'}">${euro(best.van)}</div><div class="ksub">sur ${p.duree} ans</div></div>
+    <div class="kpi"><div class="klabel">Retour sur invest.</div><div class="kval">${best.roi===null?'Non atteint':best.roi+' ans'}</div><div class="ksub">coût : ${euro(best.cout)}</div></div>
+    <div class="kpi"><div class="klabel">Énergie valorisée an 1</div><div class="kval">${nf0.format(best.recup)}</div><div class="ksub">kWh — gain : ${euro(best.gain1)}</div></div>
+  `;
+
+  // ── Tableau ───────────────────────────────────────────────────
+  $('tableau').querySelector('tbody').innerHTML = resultats.map(r => `
+    <tr class="${r.cap===best.cap?'cross':''}">
+      <td>${capF(r.cap)}</td>
+      <td>${nf0.format(Math.round(r.recup))}</td>
+      <td>${euro(r.gain1)}</td>
+      <td>${euro(r.cumul)}</td>
+      <td>${r.roi===null?'Non atteint':r.roi+' ans'}</td>
+      <td>${euro(r.van)}</td>
+    </tr>`).join('');
+
+  // ── Graphique (une courbe par capacité) ───────────────────────
+  const datasets = resultats.map(r => {
+    const isRef = r.idx === REF_INDEX;
+    return {
+      label: capF(r.cap),
+      data: r.courbe,
+      borderColor: PALETTE[r.idx % PALETTE.length],
+      backgroundColor: PALETTE[r.idx % PALETTE.length],
+      borderWidth: isRef ? 3 : 1.8,
+      tension: .25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      order: isRef ? 0 : 1
+    };
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart($('graph').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{labels:{boxWidth:12, boxHeight:12, usePointStyle:true, pointStyle:'circle'}},
+        tooltip:{
+          backgroundColor:'#1C1917', padding:11, cornerRadius:8, titleFont:{family:'"Fraunces", serif'},
+          callbacks:{
+            title:items => 'Année ' + items[0].label,
+            label:c => c.dataset.label + ' : ' + euro(c.parsed.y)
+          }
+        }
+      },
+      scales:{
+        x:{grid:{display:false}, title:{display:true, text:'Année', color:css('--ink-faint')}},
+        y:{
+          grid:{color:'rgba(0,0,0,.05)'},
+          ticks:{callback:v => nf0.format(v) + ' €'},
+          border:{display:false}
+        }
+      }
+    }
+  });
+}
+
+/* ── Recalcul automatique + lancement initial ───────────────────── */
+document.querySelectorAll('input').forEach(el => el.addEventListener('input', simuler));
+simuler();
+</script>
+</body>
+</html>
